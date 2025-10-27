@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winnkit! - Smart Grocery Delivery</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'swift-primary': '#EF4444', // Red/Orange for speed
+                        'swift-secondary': '#F97316', // Bright Orange
+                        'swift-accent': '#10B981', // Green for freshness/success
+                        'swift-background': '#F9FAFB', // Light grey background
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for category section */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        /* Simple animation for message box */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-down {
+            animation: fadeInDown 0.3s ease-out forwards;
+        }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .spinner-sm {
+            border: 3px solid rgba(59, 130, 246, 0.3); /* Blue-500 transparent */
+            border-top: 3px solid #3B82F6; /* Blue-500 */
+            width: 14px;
+            height: 14px;
+        }
+        
+        /* LLM Content Formatting for better Markdown rendering */
+        .llm-content h2 {
+            font-weight: 700;
+            font-size: 1.25rem; /* text-xl */
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #EF4444; /* swift-primary */
+            border-bottom: 1px solid #FEE2E2;
+            padding-bottom: 4px;
+        }
+        .llm-content p {
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+        .llm-content ul {
+            list-style-type: disc;
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+            padding-left: 0.5rem;
+        }
+        .llm-content li {
+            margin-bottom: 0.5rem;
+        }
+        .llm-content a {
+            color: #10B981; /* swift-accent */
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-swift-background font-sans">
+
+    <!-- Fixed Header (Navbar) -->
+    <header class="sticky top-0 z-50 bg-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            
+            <!-- Logo and Delivery Info -->
+            <div class="flex items-center space-x-4">
+                <div class="text-2xl font-extrabold text-swift-primary">
+                    Winn<span class="text-swift-secondary">kit!</span>
+                </div>
+                <!-- Location Button (Static Display) -->
+                <button id="locationButton" class="hidden sm:flex items-center text-sm font-medium text-gray-700 bg-gray-100 rounded-full px-3 py-1.5 transition duration-150 hover:bg-gray-200">
+                    <svg class="w-4 h-4 mr-1 text-swift-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <!-- Default location text -->
+                    <span class="truncate max-w-[100px]">Sydney, NSW 2000</span>
+                    <span class="ml-2 bg-swift-primary text-white text-xs font-bold px-2 rounded-full">10 Min</span>
+                </button>
+            </div>
+
+            <!-- Search Bar (Middle) -->
+            <div class="flex-grow max-w-lg hidden md:block">
+                <input id="searchInput" type="text" placeholder="Search for Rice, Milk, Bread, Snacks..." class="w-full border border-gray-300 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-swift-primary transition duration-150" />
+            </div>
+
+            <!-- Cart Button (Right) -->
+            <div class="flex items-center space-x-3">
+                <button class="md:hidden p-2 rounded-full text-gray-600 hover:bg-gray-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+                
+                <!-- NEW: Sign In Button -->
+                <button id="signInButton" class="hidden sm:block text-sm font-medium text-gray-700 bg-gray-100 rounded-full px-3 py-1.5 transition duration-150 hover:bg-gray-200">
+                    Sign In
+                </button>
+
+                <button id="cartIcon" class="relative p-2 rounded-full bg-swift-primary text-white transition duration-150 hover:bg-swift-secondary">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <span id="cartCount" class="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full bg-swift-accent text-xs font-bold text-white leading-none">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- Banner / Hero Section -->
+        <section class="mb-8 rounded-xl overflow-hidden shadow-lg bg-gradient-to-r from-swift-primary to-swift-secondary p-6 md:p-10 text-white">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-extrabold mb-2 leading-tight">
+                        Got a craving? Get it in <span class="text-yellow-300">minutes!</span>
+                    </h1>
+                    <p class="text-lg font-medium opacity-90">Your daily essentials will be delivered lightning fast across Sydney.</p>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <!-- Placeholder for a quick delivery graphic -->
+                    <svg class="w-20 h-20 md:w-24 md:h-24 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- Category Scroll Section -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Shop by Category </h2>
+            <div id="category-scroll" class="flex overflow-x-scroll space-x-4 pb-3 no-scrollbar">
+                <!-- Categories will be injected here by JS -->
+            </div>
+        </section>
+
+        <!-- Product Grid -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <span id="currentCategoryTitle">All</span> Products
+            </h2>
+            <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <!-- Products will be injected here by JS -->
+            </div>
+        </section>
+    </main>
+    
+    <!-- Footer - UPDATED WITH SOCIAL ICONS -->
+    <footer class="bg-gray-800 text-white pt-10 pb-6">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 border-b border-gray-700 pb-8 mb-6">
+                
+                <!-- Column 1: Branding -->
+                <div>
+                    <h3 class="text-2xl font-extrabold text-swift-primary mb-3">
+                        Winn<span class="text-swift-secondary">kit!</span>
+                    </h3>
+                    <p class="text-sm text-gray-400">Your lightning-fast grocery service in Sydney.</p>
+                </div>
+
+                <!-- Column 2: Legal & Info -->
+                <div>
+                    <h4 class="text-lg font-semibold mb-3 text-white">Information</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#" onclick="togglePrivacyModal(true); return false;" class="hover:text-swift-accent transition">Privacy Policy</a></li>
+                        <li><a href="#" onclick="toggleTermsModal(true); return false;" class="hover:text-swift-accent transition">Terms of Service</a></li>
+                        <li><a href="#" onclick="toggleFAQsModal(true); return false;" class="hover:text-swift-accent transition">FAQs</a></li>
+                    </ul>
+                </div>
+
+                <!-- Column 3: Support -->
+                <div>
+                    <h4 class="text-lg font-semibold mb-3 text-white">Support</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <!-- Updated Contact Us Link -->
+                        <li><a href="mailto:info@winnkit.com" class="hover:text-swift-accent transition">Email: info@winnkit.com</a></li>
+                        <li><a href="#" onclick="toggleChatModal(true); return false;" class="hover:text-swift-accent transition">Contact Us (AI Chat)</a></li>
+                        <li><a href="#" onclick="toggleSecurityModal(true); return false;" class="hover:text-swift-accent transition">Security (Report Bug)</a></li>
+                        <li><a href="#" class="hover:text-swift-accent transition">Careers</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Column 4: Stay Connected (Social Icons) -->
+                <div class="space-y-3">
+                    <h4 class="text-lg font-semibold text-white">Follow Us</h4>
+                    <div class="flex space-x-4 text-gray-400">
+                        <!-- Facebook Icon -->
+                        <a href="https://www.facebook.com/WinnkitGrocery" target="_blank" class="hover:text-swift-accent transition" aria-label="Follow us on Facebook">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.77l-.44 2.89h-2.33v6.987C18.343 21.128 22 16.991 22 12z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                        <!-- Instagram Icon -->
+                        <a href="https://www.instagram.com/WinnkitGrocery" target="_blank" class="hover:text-swift-accent transition" aria-label="Follow us on Instagram">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M12.315 2c2.43 0 2.7.01 3.65.068 1.05.068 1.63.228 2.05.385.42.157.72.378 1.05.708.33.33.55.63.708 1.05.157.42.317 1 .385 2.05.058.95.068 1.22.068 3.65s-.01 2.7-.068 3.65c-.068 1.05-.228 1.63-.385 2.05-.157.42-.378.72-.708 1.05-.33.33-.63.55-1.05.708-.42.157-1 .317-2.05.385-.95.058-1.22.068-3.65.068s-2.7-.01-3.65-.068c-1.05-.068-1.63-.228-2.05-.385-.42-.157-.72-.378-1.05-.708-.33-.33-.55-.63-.708-1.05-.157-.42-.317-1-.385-2.05-.058-.95-.068-1.22-.068-3.65s.01-2.7.068-3.65c.068-1.05.228-1.63.385-2.05.157-.42.378-.72.708-1.05.33-.33.63-.55 1.05-.708.42-.157 1-.317 2.05-.385.95-.058 1.22-.068 3.65-.068zm0 1.6c-2.43 0-2.67.01-3.6.068-1.04.067-1.42.227-1.74.348-.32.12-.55.283-.75.483-.2.2-.36.43-.48.75-.12.32-.28.7-.35 1.74-.06.93-.07 1.17-.07 3.6s.01 2.67.068 3.6c.067 1.04.227 1.42.348 1.74.12.32.283.55.483.75.2.2.43.36.75.48.32.12.7.28 1.74.35.93.06 1.17.07 3.6.07s2.67-.01 3.6-.068c1.04-.067 1.42-.227 1.74-.348.32-.12.55-.283.75-.483.2-.2.36-.43.48-.75.12-.32.28-.7.35-1.74.06-.93.07-1.17.07-3.6s-.01-2.67-.068-3.6c-.067-1.04-.227-1.42-.348-1.74-.12-.32-.283-.55-.483-.75-.2-.2-.43-.36-.75-.48-.32-.12-.7-.28-1.74-.35-.93-.06-1.17-.07-3.6-.07zM12 7.7a4.3 4.3 0 100 8.6 4.3 4.3 0 000-8.6zm0 1.6a2.7 2.7 0 110 5.4 2.7 2.7 0 010-5.4zm5.5-2.2a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Copyright and Final Text -->
+            <div class="text-center text-sm text-gray-500">
+                <p>&copy; 2025 Winnkit! All rights reserved. | Prices in AUD. | AI Powered by Gemini.</p>
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- Legal/Info Modal Template (Privacy Policy) -->
+    <div id="privacyPolicyModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl m-4 transform transition-all duration-300">
+                
+                <!-- Header -->
+                <div class="p-5 border-b flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-gray-800">Winnkit! Privacy Policy</h3>
+                    <button onclick="togglePrivacyModal(false)" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 max-h-[80vh] overflow-y-auto text-gray-700 space-y-4">
+                    <p class="text-sm text-gray-500 italic">Last Updated: October 23, 2025</p>
+                    <p>Winnkit! ("we," "our," or "us") is committed to protecting your privacy. This policy explains how we collect, use, and share your personal information when you use our quick grocery delivery service in Sydney, Australia.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">1. Information We Collect</h4>
+                    <p>We collect information you provide directly to us, suchs as your name, email address, delivery address, and contact details necessary for order fulfillment. We also collect data related to your orders, shopping history, and anonymized AI insights generated from your cart contents to improve service personalization.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">2. How We Use Information</h4>
+                    <p>We use the collected information primarily to process and deliver your orders lightning-fast across Sydney, manage your account, communicate with you about your purchases, and enhance your shopping experience. We do not sell your personal data. AI-generated recipes are for your personal use only and are based on aggregated data where possible.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">3. Data Security and Payment Processing</h4>
+                    <p>We implement strict security measures to protect your data. All payment processing (Card, PayPal, PayID) is handled by PCI-compliant third-party gateways (mocked in this demo) and we do not store full credit card details on our servers.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legal/Info Modal Template (Terms of Service) -->
+    <div id="termsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl m-4 transform transition-all duration-300">
+                
+                <!-- Header -->
+                <div class="p-5 border-b flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-gray-800">Winnkit! Terms of Service</h3>
+                    <button onclick="toggleTermsModal(false)" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 max-h-[80vh] overflow-y-auto text-gray-700 space-y-4">
+                    <p class="text-sm text-gray-500 italic">Effective Date: October 23, 2025</p>
+                    <p>Welcome to Winnkit! These terms govern your use of our service. By placing an order, you agree to these terms.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">1. Order Placement and Acceptance</h4>
+                    <p>All orders placed through Winnkit! are subject to product availability and acceptance by us. We reserve the right to refuse any order for any reason, including product unavailability or unusual order size.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">2. Delivery Promise</h4>
+                    <p>We aim for "delivery in minutes" across Sydney, but this is an estimate, not a guarantee. Delivery times may be affected by traffic, weather, or high order volumes. Any claim for late delivery is subject to our discretion and internal investigation.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">3. Payments</h4>
+                    <p>Payment is due at the time of order via the methods provided (Card, PayPal, PayID, COD). If paying via COD, you must have the exact cash amount available upon delivery. Failure to provide payment may result in refusal of future service.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legal/Info Modal Template (FAQs) -->
+    <div id="faqsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl m-4 transform transition-all duration-300">
+                
+                <!-- Header -->
+                <div class="p-5 border-b flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-gray-800">Frequently Asked Questions (FAQs)</h3>
+                    <button onclick="toggleFAQsModal(false)" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 max-h-[80vh] overflow-y-auto text-gray-700 space-y-6">
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">Q: How fast is the delivery?</h4>
+                    <p>A: We aim to deliver within minutes in the Sydney metro area. We prioritize speed by utilizing local dark stores, but delivery times are estimates.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">Q: Is there a minimum order amount?</h4>
+                    <p>A: We do not currently enforce a minimum order amount, but a small delivery fee may apply depending on your location and order total.</p>
+
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">Q: How do I generate a recipe?</h4>
+                    <p>A: After adding items to your cart, open the cart modal and click "Generate Recipe ✨." Our AI (powered by Gemini) analyzes your ingredients and suggests a recipe using Google Search grounding.</p>
+                    
+                    <h4 class="font-bold text-lg pt-2 text-swift-primary">Q: What if I need to return a product?</h4>
+                    <p>A: Due to the nature of quick delivery groceries, returns are handled on a case-by-case basis. Please contact our support team immediately if an item is damaged or incorrect.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Security Report Modal (Bug Report) -->
+    <div id="securityModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4 transform transition-all duration-300">
+                
+                <!-- Header -->
+                <div class="p-5 border-b flex justify-between items-center bg-swift-primary rounded-t-xl">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        Security Concern Report
+                    </h3>
+                    <button onclick="toggleSecurityModal(false)" class="text-white hover:text-gray-200 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Content/Form -->
+                <div class="p-6 space-y-4">
+                    <p class="text-sm text-gray-700">Please use this form to report any security vulnerabilities, privacy issues, or concerns about your account data.</p>
+                    
+                    <input type="text" id="securityEmail" placeholder="Your Email (Optional, for follow-up)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-accent focus:border-swift-accent">
+                    
+                    <input type="text" id="securityTitle" placeholder="Issue Title (e.g., 'Data Leak Vulnerability')" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-accent focus:border-swift-accent">
+                    
+                    <textarea id="securityDescription" placeholder="Detailed description of the bug or concern (include steps to reproduce)" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-accent focus:border-swift-accent"></textarea>
+                    
+                    <p id="securityError" class="text-sm text-red-500 hidden font-medium text-center"></p>
+                    
+                    <button id="submitSecurityReport" onclick="handleSecurityReport()" class="w-full bg-swift-accent text-white py-3 rounded-lg font-bold text-lg hover:bg-green-600 transition duration-150 shadow-lg">
+                        Submit Report
+                    </button>
+                    
+                    <p class="text-center text-xs text-gray-500 pt-2">
+                        Your privacy is our priority. We take all reports seriously.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- NEW: Auth/Login Modal (Hidden by default) -->
+    <div id="authModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm m-4 transform transition-all duration-300">
+                
+                <!-- Modal Header -->
+                <div class="p-5 border-b flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-gray-800">Sign In to Winnkit!</h3>
+                    <button id="closeAuthModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body (Login Options) -->
+                <div class="p-6 space-y-4">
+                    
+                    <!-- Google Sign In Button (Mock) -->
+                    <button id="googleSignInButton" class="w-full py-3 px-4 border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 flex items-center justify-center space-x-3 transition duration-150">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" class="w-5 h-5">
+                        <span class="text-gray-700 font-medium">Continue with Google</span>
+                    </button>
+                    
+                    <div class="flex items-center justify-center space-x-2">
+                        <span class="h-px bg-gray-300 flex-grow"></span>
+                        <span class="text-sm text-gray-500">OR</span>
+                        <span class="h-px bg-gray-300 flex-grow"></span>
+                    </div>
+
+                    <!-- Email/Password Form (Mock) -->
+                    <input type="email" id="authEmail" placeholder="Email Address (use: user@example.com)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-primary focus:border-swift-primary">
+                    <input type="password" id="authPassword" placeholder="Password (use: 12345)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-primary focus:border-swift-primary">
+                    <p id="authError" class="text-sm text-red-500 hidden font-medium text-center">Invalid email or password.</p>
+                    
+                    <button id="emailSignInButton" class="w-full bg-swift-primary text-white py-3 rounded-lg font-bold text-lg hover:bg-swift-secondary transition duration-150 shadow-lg">
+                        Sign In
+                    </button>
+                    
+                    <p class="text-center text-xs text-gray-500">
+                        Use mock credentials to sign in: 
+                        <span class="font-semibold text-gray-700">user@example.com</span> / <span class="font-semibold text-gray-700">12345</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Cart Modal (Hidden by default) -->
+    <div id="cartModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg m-4 transform transition-all duration-300">
+                
+                <!-- Modal Header -->
+                <div class="p-5 border-b flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-swift-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        Your Winnkit! Basket (Items: <span id="modalCartCount" class="ml-1">0</span>)
+                    </h3>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body (Cart Items) -->
+                <div id="cartItemsList" class="p-5 max-h-80 overflow-y-auto space-y-3">
+                    <!-- Cart items list will be rendered here -->
+                    <p class="text-center text-gray-500 italic">Your basket is empty. Add some groceries!</p>
+                </div>
+
+                <!-- Modal Footer (Checkout & LLM) -->
+                <div class="p-5 border-t space-y-4">
+                    
+                    <button id="generateRecipeBtn" class="w-full bg-yellow-500 text-white py-3 rounded-lg font-bold text-lg hover:bg-yellow-600 transition duration-150 shadow-md disabled:bg-gray-400 flex items-center justify-center" disabled>
+                        Generate Recipe ✨
+                    </button>
+
+                    <!-- Order Total -->
+                    <div class="flex justify-between items-center text-xl font-bold border-t pt-4">
+                        <span>Order Total:</span>
+                        <span id="cartTotal" class="text-swift-primary">$0.00</span> 
+                    </div>
+
+                    <!-- Payment Selection -->
+                    <div id="payment-selection-section" class="pt-2 space-y-3">
+                        <h4 class="text-lg font-bold text-gray-800">Select Payment Method</h4>
+                        <div class="grid grid-cols-4 gap-2"> <!-- Adjusted to grid-cols-4 for PayID -->
+                            <button data-method="Card" class="payment-method-btn bg-swift-primary text-white py-2 rounded-lg text-sm font-semibold border-2 border-swift-primary transition">Card</button>
+                            <button data-method="PayPal" class="payment-method-btn bg-white text-gray-700 py-2 rounded-lg text-sm font-semibold border-2 border-gray-300 hover:border-swift-secondary transition">PayPal</button>
+                            <button data-method="COD" class="payment-method-btn bg-white text-gray-700 py-2 rounded-lg text-sm font-semibold border-2 border-gray-300 hover:border-swift-secondary transition">Cash on Delivery</button>
+                            <button data-method="PayID" class="payment-method-btn bg-white text-gray-700 py-2 rounded-lg text-sm font-semibold border-2 border-gray-300 hover:border-swift-secondary transition">PayID</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Card Payment Form (MOCK Stripe Element Style) -->
+                    <div id="card-payment-form" class="space-y-3 p-3 bg-white rounded-lg border border-gray-300 shadow-md">
+                        <p class="text-sm font-semibold text-gray-700 -mt-1">Payment Information</p>
+                        <!-- MOCK OF SECURE CARD ELEMENT -->
+                        <div class="p-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center space-x-2">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            <input type="text" id="cardNumber" placeholder="Card number (xxxx xxxx xxxx xxxx)" maxlength="19" class="flex-grow bg-gray-50 border-none focus:ring-0 focus:outline-none text-base">
+                        </div>
+                        <div class="flex space-x-3">
+                            <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" class="w-1/2 p-3 border border-gray-300 rounded-lg focus:ring-swift-primary focus:border-swift-primary">
+                            <input type="text" id="cardCVC" placeholder="CVC" maxlength="3" class="w-1/2 p-3 border border-gray-300 rounded-lg focus:ring-swift-primary focus:border-swift-primary">
+                        </div>
+                        <p id="paymentError" class="text-sm text-red-500 hidden font-medium">Please enter valid card details.</p>
+                    </div>
+
+                    <!-- PayID Input Form -->
+                    <div id="payid-input-form" class="space-y-3 p-3 bg-white rounded-lg border border-gray-300 shadow-md hidden">
+                        <p class="text-sm font-semibold text-gray-700">Enter your Mobile PayID:</p>
+                        <input type="text" id="payidMobile" placeholder="Mobile Number (e.g., 04XX XXX XXX)" maxlength="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-primary focus:border-swift-primary">
+                    </div>
+
+
+                    <!-- Payment Button -->
+                    <button id="payNowButton" class="w-full bg-swift-primary text-white py-3 rounded-lg font-bold text-lg hover:bg-swift-secondary transition duration-150 shadow-lg shadow-swift-primary/50 disabled:bg-gray-400" disabled>
+                        Pay Now
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- PayPal Sign-In Modal (Existing) -->
+    <div id="paypalSignInModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm m-4 transform transition-all duration-300">
+                
+                <!-- Mock PayPal Header -->
+                <div class="p-4 border-b flex justify-center items-center bg-blue-900 rounded-t-xl">
+                    <span class="text-2xl font-bold text-white tracking-wider">PayPal</span>
+                </div>
+
+                <!-- Modal Body (Login Form) -->
+                <div class="p-6 space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-800 text-center">Log in to complete your purchase</h3>
+                    <input type="email" id="paypalEmail" placeholder="Email or mobile number (use: test@paypal.com)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-600 focus:border-blue-600">
+                    <input type="password" id="paypalPassword" placeholder="Password (use: password)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-600 focus:border-blue-600">
+                    
+                    <button id="paypalLoginButton" class="w-full bg-blue-600 text-white py-3 rounded-full font-bold text-lg hover:bg-blue-700 transition duration-150 shadow-md disabled:bg-gray-400">
+                        Log In & Pay
+                    </button>
+                    
+                    <div class="flex justify-between items-center text-sm">
+                        <button id="forgotPasswordBtn" class="text-blue-600 hover:underline">Forgot Password?</button>
+                        <p id="paypalError" class="text-red-500 hidden font-medium text-center"></p>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <button id="paypalBackButton" class="w-full bg-gray-200 text-gray-700 py-3 rounded-full font-bold text-lg hover:bg-gray-300 transition duration-150">
+                        <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Back to Checkout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- LLM Response Modal (Existing) -->
+    <div id="llmResponseModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl m-4 transform transition-all duration-300">
+                
+                <!-- Modal Header -->
+                <div class="p-5 border-b flex justify-between items-center bg-swift-primary rounded-t-xl">
+                    <h3 id="llmResponseTitle" class="text-xl font-bold text-white flex items-center">
+                        AI Insight
+                    </h3>
+                    <button id="closeLlmModal" class="text-white hover:text-gray-200 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-5 max-h-[80vh] overflow-y-auto">
+                    <div id="llmResponseContent" class="text-gray-700 llm-content">
+                        <!-- LLM content will be rendered here -->
+                    </div>
+                    <div id="llmLoadingIndicator" class="hidden flex justify-center items-center py-10">
+                        <div class="spinner w-8 h-8 mr-3"></div>
+                        <p class="text-gray-500 font-medium">Generating insight...</p>
+                    </div>
+                    <div id="llmCitations" class="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                        <!-- Citations will be rendered here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Chat Modal (NEW) -->
+    <div id="chatModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4 transform transition-all duration-300">
+                
+                <!-- Header -->
+                <div class="p-5 border-b flex justify-between items-center bg-swift-accent rounded-t-xl">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        Winnkit! AI Support Chat ✨
+                    </h3>
+                    <button id="closeChatModal" onclick="toggleChatModal(false)" class="text-white hover:text-gray-200 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Chat History -->
+                <div id="chatHistory" class="p-4 h-80 overflow-y-auto space-y-4">
+                    <div class="flex justify-start">
+                        <div class="bg-gray-100 p-3 rounded-lg max-w-[80%] text-gray-700 shadow-sm">
+                            <p class="font-semibold text-swift-accent">AI Support</p>
+                            <p>Hi there! I'm your AI assistant. How can I help you with your order, delivery, or payment options today?</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="p-4 border-t flex space-x-3">
+                    <input type="text" id="chatInput" placeholder="Ask about delivery, payment, or products..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-swift-accent focus:border-swift-accent" onkeydown="if(event.key === 'Enter') handleChatInput()">
+                    <button id="chatSendButton" onclick="handleChatInput()" class="bg-swift-accent text-white p-3 rounded-lg hover:bg-green-600 transition disabled:bg-gray-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Data Mockup (Prices in AUD) ---
+        const MOCK_PRODUCTS = [
+            // Dairy
+            { id: 3, name: "Full Cream Milk", price: 2.80, category: "Dairy", unit: "1 L" },
+            { id: 32, name: "Full Cream Milk", price: 3.50, category: "Dairy", unit: "2 L" },
+            { id: 33, name: "Full Cream Milk", price: 4.80, category: "Dairy", unit: "3 L" },
+            { id: 31, name: "Skim Milk", price: 2.60, category: "Dairy", unit: "1 L" },
+            { id: 38, name: "Skim Milk", price: 3.30, category: "Dairy", unit: "2 L" },
+            { id: 39, name: "Skim Milk", price: 4.50, category: "Dairy", unit: "3 L" },
+            { id: 40, name: "Lactose Free Milk", price: 4.00, category: "Dairy", unit: "1 L" },
+            { id: 43, name: "Soy Milk", price: 3.50, category: "Dairy", unit: "1 L" }, 
+            { id: 34, name: "Salted Butter Block", price: 3.80, category: "Dairy", unit: "250 g" },
+            { id: 35, name: "Salted Butter Block", price: 6.50, category: "Dairy", unit: "500 g" },
+            { id: 41, name: "Unsalted Butter Block", price: 3.80, category: "Dairy", unit: "250 g" },
+            { id: 42, name: "Unsalted Butter Block", price: 6.50, category: "Dairy", unit: "500 g" },
+            { id: 36, name: "Sharma's Yoghurt", price: 8.00, category: "Dairy", unit: "2 Kg Tub" },
+            { id: 37, name: "Sharma's Yoghurt", price: 15.00, category: "Dairy", unit: "5 Kg Tub" },
+            { id: 22, name: "Shredded Cheese", price: 5.50, category: "Dairy", unit: "250 g" },
+            
+            // Rice and Dal
+            { id: 50, name: "Toor Dal (Split Pigeon Peas)", price: 2.00, category: "Rice and Dal", unit: "250 g" },
+            { id: 51, name: "Toor Dal (Split Pigeon Peas)", price: 3.50, category: "Rice and Dal", unit: "500 g" },
+            { id: 52, name: "Yellow Split Dal (Chana Dal)", price: 1.80, category: "Rice and Dal", unit: "250 g" },
+            { id: 53, name: "Yellow Split Dal (Chana Dal)", price: 3.00, category: "Rice and Dal", unit: "500 g" },
+            { id: 56, name: "Basmati Rice (Premium)", price: 28.00, category: "Rice and Dal", unit: "5 Kg" },
+            { id: 57, name: "Basmati Rice (Premium)", price: 55.00, category: "Rice and Dal", unit: "10 Kg" },
+            { id: 54, name: "Sona Masoori Rice", price: 18.00, category: "Rice and Dal", unit: "5 Kg" },
+            { id: 55, name: "Sona Masoori Rice", price: 34.00, category: "Rice and Dal", unit: "10 Kg" },
+
+
+            // Snacks
+            { id: 60, name: "Good Day Cookies", price: 3.50, category: "Snacks", unit: "250 gm" },
+            { id: 61, name: "Hide and Seek Biscuits", price: 4.00, category: "Snacks", unit: "250 gm" },
+            { id: 62, name: "Plain Rusk", price: 3.00, category: "Snacks", unit: "250 gm" },
+            { id: 63, name: "Oreo Original Cookies", price: 4.50, category: "Snacks", unit: "250 gm" },
+            { id: 64, name: "Jim Jam Biscuits", price: 3.80, category: "Snacks", unit: "250 gm" },
+            { id: 6, name: "Lay's Magic Masala Chips", price: 2.00, category: "Snacks", unit: "52 g" },
+            { id: 7, name: "Instant Noodles (4pk)", price: 5.50, category: "Snacks", unit: "4 x 70 g" },
+            { id: 65, name: "Haldiram's Nutcracker", price: 5.00, category: "Snacks", unit: "250 gm" },
+            { id: 66, name: "Alu Bhujia", price: 4.50, category: "Snacks", unit: "250 gm" },
+
+            // Sweets
+            { id: 14, name: "Cadbury Dairy Milk Block", price: 5.00, category: "Sweets", unit: "180 g" },
+            { id: 15, name: "Jelly Beans Party Mix", price: 3.50, category: "Sweets", unit: "200 g" },
+            { id: 26, name: "Kaju Katli (Cashew Fudge)", price: 15.00, category: "Sweets", unit: "250 g" },
+            { id: 27, name: "Gulab Jamun (In Syrup)", price: 6.50, category: "Sweets", unit: "1 Kg Tin" },
+            { id: 28, name: "Motichoor Laddu", price: 8.00, category: "Sweets", unit: "500 g" },
+            { id: 29, name: "Soan Papdi (Flaky Sweet)", price: 4.00, category: "Sweets", unit: "250 g" },
+            { id: 30, name: "Ras Malai (Dessert Cheese)", price: 9.50, category: "Sweets", unit: "500 g" },
+            
+            // Rolling paper and tobacco
+            { id: 16, name: "Rolling Papers (Kingsize)", price: 4.00, category: "Rolling paper and tobacco", unit: "Pack of 32" },
+            { id: 17, name: "Smoking Blend Alternative", price: 15.00, category: "Rolling paper and tobacco", unit: "50 g" },
+            
+            // Oil & Masala
+            { id: 18, name: "Premium Canola Oil", price: 8.50, category: "Oil & Masala", unit: "1 L" },
+            { id: 11, name: "Premium Clarified Butter (Ghee)", price: 35.00, category: "Oil & Masala", unit: "1 L" }, 
+            { id: 91, name: "Premium Clarified Butter (Ghee)", price: 65.00, category: "Oil & Masala", unit: "2 L" },
+            { id: 81, name: "Premium Garam Masala Powder", price: 7.00, category: "Oil & Masala", unit: "250 gm" },
+            { id: 82, name: "Premium Garam Masala Powder", price: 13.00, category: "Oil & Masala", unit: "500 gm" },
+            { id: 83, name: "Hot Red Chilli Powder", price: 5.50, category: "Oil & Masala", unit: "250 gm" },
+            { id: 84, name: "Hot Red Chilli Powder", price: 10.00, category: "Oil & Masala", unit: "500 gm" },
+            { id: 85, name: "Ground Cumin Powder", price: 6.00, category: "Oil & Masala", unit: "250 gm" },
+            { id: 86, name: "Ground Cumin Powder", price: 11.00, category: "Oil & Masala", unit: "500 gm" },
+            { id: 87, name: "Ground Coriander Powder", price: 5.00, category: "Oil & Masala", unit: "250 gm" },
+            { id: 88, name: "Ground Coriander Powder", price: 9.00, category: "Oil & Masala", unit: "500 gm" },
+            { id: 89, name: "Turmeric Powder (Haldi)", price: 4.50, category: "Oil & Masala", unit: "250 gm" },
+            { id: 90, name: "Turmeric Powder (Haldi)", price: 8.00, category: "Oil & Masala", unit: "500 gm" },
+            
+            // Home Cleaning products
+            { id: 20, name: "All-Purpose Cleaner", price: 6.50, category: "Home Cleaning products", unit: "750 ml" },
+            { id: 21, name: "Dishwashing Liquid", price: 4.20, category: "Home Cleaning products", unit: "400 ml" },
+            { id: 100, name: "Toilet Cleaner", price: 4.50, category: "Home Cleaning products", unit: "250 ml" },
+            { id: 101, name: "Toilet Freshener Gel", price: 3.00, category: "Home Cleaning products", unit: "250 ml" },
+            { id: 102, name: "Dishwashing Liquid (Premium)", price: 5.00, category: "Home Cleaning products", unit: "500 ml" },
+            { id: 103, name: "Dishwashing Tablets (Bulk)", price: 15.00, category: "Home Cleaning products", unit: "500 gm" },
+            { id: 104, name: "Laundry Liquid", price: 7.50, category: "Home Cleaning products", unit: "500 ml" },
+            { id: 105, name: "Laundry Gel (Concentrate)", price: 8.00, category: "Home Cleaning products", unit: "500 ml" },
+            
+            // Beverages
+            { id: 70, name: "Society Tea", price: 8.00, category: "Beverages", unit: "500 gm" },
+            { id: 71, name: "Taj Mahal Tea", price: 9.50, category: "Beverages", unit: "500 gm" },
+            { id: 75, name: "Instant Tea Premix", price: 6.00, category: "Beverages", unit: "250 g" },
+            { id: 72, name: "Bru Instant Coffee", price: 15.00, category: "Beverages", unit: "500 gm" },
+            { id: 73, name: "Nescafe Classic Coffee", price: 18.00, category: "Beverages", unit: "500 gm" },
+            { id: 74, name: "Bournvita Powder", price: 10.50, category: "Beverages", unit: "1 Kg" },
+        ];
+        
+        const CATEGORIES = [
+            { name: "Sweets", icon: "🍫" },
+            { name: "Rolling paper and tobacco", icon: "🚬" },
+            { name: "Dairy", icon: "🥛" },
+            { name: "Rice and Dal", icon: "🍚" },
+            { name: "Snacks", icon: "🍟" },
+            { name: "Beverages", icon: "☕" },
+            { name: "Oil & Masala", icon: "🌶️" },
+            { name: "Home Cleaning products", icon: "🧹" },
+        ];
+
+        // --- State Management ---
+        let cart = {}; // { productId: quantity, ... }
+        let activeCategory = 'All';
+        let paymentMethod = 'Card'; // Default payment method
+
+        // Mock Auth Credentials
+        const MOCK_AUTH_EMAIL = "user@example.com";
+        const MOCK_AUTH_PASSWORD = "12345";
+        let isAuthenticated = false; // New state variable
+
+        // Mock PayPal Credentials
+        const MOCK_PAYPAL_EMAIL = "test@paypal.com";
+        const MOCK_PAYPAL_PASSWORD = "password";
+        
+        // Chat History (for AI Support)
+        let chatHistory = [{
+            role: "model",
+            parts: [{ text: "Hi there! I'm your AI assistant. How can I help you with your order, delivery, or payment options today?" }]
+        }];
+
+
+        // --- API Configuration ---
+        const API_KEY = ""; // Canvas environment will provide the key
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+        
+        // --- DOM Elements ---
+        const searchInput = document.getElementById('searchInput'); // NEW: Get search input
+        const productGrid = document.getElementById('product-grid');
+        const categoryScroll = document.getElementById('category-scroll');
+        const cartIcon = document.getElementById('cartIcon');
+        const cartModal = document.getElementById('cartModal');
+        const closeModalButton = document.getElementById('closeModal');
+        const cartCountDisplay = document.getElementById('cartCount');
+        const modalCartCountDisplay = document.getElementById('modalCartCount');
+        const cartItemsList = document.getElementById('cartItemsList');
+        const cartTotalDisplay = document.getElementById('cartTotal');
+        const generateRecipeBtn = document.getElementById('generateRecipeBtn');
+        const currentCategoryTitle = document.getElementById('currentCategoryTitle');
+        
+        // Payment Elements
+        const payNowButton = document.getElementById('payNowButton');
+        const cardPaymentForm = document.getElementById('card-payment-form');
+        const cardNumberInput = document.getElementById('cardNumber');
+        const cardExpiryInput = document.getElementById('cardExpiry');
+        const cardCVCInput = document.getElementById('cardCVC');
+        const paymentErrorDisplay = document.getElementById('paymentError');
+        const payidInputForm = document.getElementById('payid-input-form');
+        const payidMobileInput = document.getElementById('payidMobile');
+        
+        // PayPal Modal Elements
+        const paypalSignInModal = document.getElementById('paypalSignInModal');
+        const paypalLoginButton = document.getElementById('paypalLoginButton');
+        const paypalEmailInput = document.getElementById('paypalEmail');
+        const paypalPasswordInput = document.getElementById('paypalPassword');
+        const paypalErrorDisplay = document.getElementById('paypalError');
+        const paypalBackButton = document.getElementById('paypalBackButton');
+        const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+
+        // LLM Modals
+        const llmResponseModal = document.getElementById('llmResponseModal');
+        const closeLlmModal = document.getElementById('closeLlmModal');
+        const llmResponseTitle = document.getElementById('llmResponseTitle');
+        const llmResponseContent = document.getElementById('llmResponseContent');
+        const llmLoadingIndicator = document.getElementById('llmLoadingIndicator');
+        const llmCitations = document.getElementById('llmCitations');
+
+        // Auth Modal Elements
+        const signInButton = document.getElementById('signInButton');
+        const authModal = document.getElementById('authModal');
+        const closeAuthModal = document.getElementById('closeAuthModal');
+        const googleSignInButton = document.getElementById('googleSignInButton');
+        const emailSignInButton = document.getElementById('emailSignInButton');
+        const authEmailInput = document.getElementById('authEmail');
+        const authPasswordInput = document.getElementById('authPassword');
+        const authErrorDisplay = document.getElementById('authError');
+        
+        // Legal Modals
+        const privacyPolicyModal = document.getElementById('privacyPolicyModal');
+        const termsModal = document.getElementById('termsModal');
+        const faqsModal = document.getElementById('faqsModal');
+        
+        // NEW Security Modal
+        const securityModal = document.getElementById('securityModal');
+        const submitSecurityReportButton = document.getElementById('submitSecurityReport');
+        const securityErrorDisplay = document.getElementById('securityError');
+        const securityTitleInput = document.getElementById('securityTitle');
+        const securityDescriptionInput = document.getElementById('securityDescription');
+        const securityEmailInput = document.getElementById('securityEmail');
+
+        // NEW Chat Modal Elements
+        const chatModal = document.getElementById('chatModal');
+        const chatHistoryContainer = document.getElementById('chatHistory');
+        const chatInput = document.getElementById('chatInput');
+        const chatSendButton = document.getElementById('chatSendButton');
+
+
+        // --- Utility Functions (LLM, Markdown, Fetch, etc.) ---
+
+        /**
+         * Simple Markdown-to-HTML converter for LLM text.
+         */
+        function markdownToHtml(markdownText) {
+            if (!markdownText) return '';
+            let html = markdownText;
+
+            // Headings (##) -> <h2>
+            html = html.replace(/^##\s*(.*)$/gm, '<h2>$1</h2>');
+            
+            // Lists (* or -) -> <ul><li> (must be done before paragraphs)
+            html = html.replace(/^\s*[\*-]\s*(.*)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>(\n|.)*?<\/li>)/gs, (match) => `<ul>${match.replace(/<ul>/g, '').replace(/<\/ul>/g, '')}</ul>`); 
+            
+            // Paragraphs (wrap non-special lines)
+            html = html.split('\n').map(line => {
+                line = line.trim();
+                // Check if line is empty, starts with a tag, or contains a closing tag
+                if (line === '' || line.startsWith('<h2') || line.startsWith('<ul') || line.startsWith('<li') || line.startsWith('<p>') || line.endsWith('<h2>') || line.endsWith('</ul>') || line.endsWith('</li>')) {
+                    return line;
+                }
+                return `<p>${line}</p>`;
+            }).join('');
+            
+            // Clean up empty lines created by wrapping
+            html = html.replace(/<p><\/p>/g, ''); 
+            
+            return html;
+        }
+
+        /**
+         * Fetches data with exponential backoff for resilience.
+         */
+        async function fetchWithBackoff(url, payload, retries = 0) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    if (response.status === 429 && retries < 3) {
+                        const delay = Math.pow(2, retries) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, payload, retries + 1);
+                    }
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+
+                return response.json();
+            } catch (error) {
+                console.error("Fetch failed after all retries:", error);
+                throw error;
+            }
+        }
+        
+        /**
+         * Shows the LLM response modal with content or a loading indicator.
+         */
+        function showLlmResponse(title, contentHtml, isLoading = false) {
+            llmResponseTitle.textContent = title;
+            llmCitations.innerHTML = '';
+            
+            if (isLoading) {
+                llmResponseContent.innerHTML = '';
+                llmLoadingIndicator.classList.remove('hidden');
+            } else {
+                llmResponseContent.innerHTML = contentHtml;
+                llmLoadingIndicator.classList.add('hidden');
+            }
+
+            llmResponseModal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            
+            // Close other modals if open
+            if (!cartModal.classList.contains('hidden')) {
+                toggleCartModal(false);
+            }
+        }
+
+        /**
+         * Closes the LLM response modal.
+         */
+        function closeLlmResponse() {
+            llmResponseModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        /**
+         * Processes the API response to extract text and citations.
+         */
+        function processLlmResult(result) {
+            const candidate = result.candidates?.[0];
+            const text = candidate?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response right now.";
+            let sources = [];
+            const groundingMetadata = candidate?.groundingMetadata;
+
+            if (groundingMetadata?.groundingAttributions) {
+                sources = groundingMetadata.groundingAttributions
+                    .map(attribution => ({
+                        uri: attribution.web?.uri,
+                        title: attribution.web?.title,
+                    }))
+                    .filter(source => source.uri && source.title)
+                    .slice(0, 3); // Limit to top 3 sources for display
+            }
+            return { text, sources };
+        }
+
+        /**
+         * LLM Feature 1: Generates a recipe based on the current cart contents.
+         */
+        async function generateRecipeFromCart() {
+            const ingredientNames = Object.keys(cart)
+                .map(id => {
+                    const product = MOCK_PRODUCTS.find(p => p.id === parseInt(id));
+                    if (product) {
+                        // Use product name and unit for better context in prompt
+                        return `${cart[id]} x ${product.name} (${product.unit})`;
+                    }
+                    return null;
+                })
+                .filter(name => name)
+                .join(', ');
+
+            if (!ingredientNames) {
+                return;
+            }
+
+            showLlmResponse("Recipe Suggestion ✨", "", true);
+            generateRecipeBtn.disabled = true;
+            generateRecipeBtn.innerHTML = '<div class="spinner w-6 h-6 mr-2"></div> Generating Recipe...';
+
+            const userQuery = `Generate a simple, quick, and budget-friendly recipe (including estimated prep time, instructions, and serving size) using the following Australian grocery items: ${ingredientNames}. Prioritize using all listed items.`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: "You are a professional Australian home cook. Provide a single, detailed recipe and format the output using clear markdown headings (##) and unordered lists (-) and prioritize using items like rice, dal, and spices over cleaning products. Do not include any introductory or concluding text outside of the recipe itself." }]
+                },
+            };
+
+            try {
+                const result = await fetchWithBackoff(API_URL, payload);
+                const { text, sources } = processLlmResult(result);
+                
+                const contentHtml = markdownToHtml(text);
+                
+                let citationsHtml = '';
+                if (sources.length > 0) {
+                    citationsHtml = 'Sources: ' + sources.map((s, i) => 
+                        `<a href="${s.uri}" target="_blank" class="text-swift-accent hover:text-green-700">${s.title}</a>`
+                    ).join(' | ');
+                }
+                
+                showLlmResponse("Your Winnkit! Recipe Idea ✨", contentHtml, false);
+                llmCitations.innerHTML = citationsHtml;
+
+            } catch (e) {
+                showLlmResponse("Error Generating Recipe", `<p class="text-red-500">Sorry, we couldn't fetch a recipe due to an API error. Please try again later.</p>`, false);
+                console.error("Gemini API Error:", e);
+            } finally {
+                generateRecipeBtn.disabled = false;
+                generateRecipeBtn.innerHTML = 'Generate Recipe ✨';
+            }
+        }
+
+        /**
+         * LLM Feature 2: Generates a fun fact or tip about a specific product.
+         */
+        async function showProductInsight(productId, buttonElement) {
+            const product = MOCK_PRODUCTS.find(p => p.id === productId);
+
+            if (!product) {
+                console.error("Product not found for ID:", productId);
+                return;
+            }
+
+            // Set button loading state
+            buttonElement.disabled = true;
+            buttonElement.innerHTML = '<span class="insight-spinner spinner-sm inline-block mr-1"></span> Loading...';
+
+            showLlmResponse(`Insight for ${product.name} ✨`, "", true);
+
+            const userQuery = `Provide one fun, engaging fact about ${product.name} or a helpful cooking/storage tip for this item. Keep the response concise and formatted as a single paragraph.`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: "You are a friendly, knowledgeable grocery assistant in Australia. Your response must be a single paragraph." }]
+                },
+            };
+
+            try {
+                const result = await fetchWithBackoff(API_URL, payload);
+                const { text, sources } = processLlmResult(result);
+                
+                const contentHtml = `<p>${text}</p>`;
+                
+                let citationsHtml = '';
+                if (sources.length > 0) {
+                    citationsHtml = 'Source: ' + sources.map((s, i) => 
+                        `<a href="${s.uri}" target="_blank" class="text-swift-accent hover:text-green-700">${s.title}</a>`
+                    ).join(' | ');
+                }
+
+                showLlmResponse(`Insight for ${product.name} ✨`, contentHtml, false);
+                llmCitations.innerHTML = citationsHtml;
+
+            } catch (e) {
+                showLlmResponse(`Insight for ${product.name} ✨`, `<p class="text-red-500">Could not retrieve insight. Please check your connection.</p>`, false);
+                console.error("Gemini API Error:", e);
+            } finally {
+                // Find the original button again since the loading state might have changed its content
+                const originalButton = document.querySelector(`.insight-btn[data-id="${productId}"]`);
+                if (originalButton) {
+                    originalButton.disabled = false;
+                    originalButton.innerHTML = 'Get Insight ✨';
+                }
+            }
+        }
+        
+        
+        // --- Core UI & Cart Functions ---
+        
+        /**
+         * Applies both category and search filters and updates the UI.
+         */
+        function applyFilters(searchQuery = searchInput.value.trim(), category = activeCategory) {
+            const lowerCaseQuery = searchQuery.toLowerCase();
+
+            // Start with all products
+            let filteredProducts = MOCK_PRODUCTS;
+
+            // 1. Apply Category Filter
+            if (category !== 'All') {
+                filteredProducts = filteredProducts.filter(p => p.category === category);
+            }
+
+            // 2. Apply Search Filter
+            if (lowerCaseQuery) {
+                filteredProducts = filteredProducts.filter(product =>
+                    product.name.toLowerCase().includes(lowerCaseQuery) ||
+                    product.category.toLowerCase().includes(lowerCaseQuery)
+                );
+            }
+
+            // 3. Update Title Display
+            let titleText = category === 'All' ? 'All' : category;
+            if (lowerCaseQuery) {
+                if (category !== 'All') {
+                     titleText = `Results for "${searchQuery}" in ${category}`;
+                } else {
+                     titleText = `Search results for "${searchQuery}"`;
+                }
+            }
+            currentCategoryTitle.textContent = titleText;
+
+            // 4. Render Results
+            renderProducts(filteredProducts);
+        }
+
+        /**
+         * Renders the category buttons and attaches click handlers for filtering.
+         */
+        function renderCategories() {
+            const allCategories = [{ name: "All", icon: "🛒" }, ...CATEGORIES];
+            
+            categoryScroll.innerHTML = allCategories.map(cat => {
+                const isActive = cat.name === activeCategory;
+                const baseClasses = "flex-shrink-0 w-20 h-20 rounded-xl shadow-md p-2 flex flex-col items-center justify-center cursor-pointer transition duration-150";
+                const activeClasses = "bg-swift-primary text-white shadow-xl hover:shadow-2xl hover:scale-[1.05]";
+                const inactiveClasses = "bg-white text-gray-700 hover:shadow-lg hover:scale-[1.02]";
+                
+                return `
+                    <div data-category="${cat.name}" class="${baseClasses} ${isActive ? activeClasses : inactiveClasses} category-btn">
+                        <span class="text-3xl">${cat.icon}</span>
+                        <span class="text-xs font-medium mt-1 text-center ${isActive ? 'text-white' : 'text-gray-700'}">${cat.name}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.category-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const category = e.currentTarget.getAttribute('data-category');
+                    filterProducts(category);
+                });
+            });
+        }
+
+        /**
+         * Applies the product filter (only updates activeCategory and calls applyFilters).
+         */
+        function filterProducts(category) {
+            activeCategory = category;
+            renderCategories(); // Update button styling
+            applyFilters(); // Apply new category filter along with current search query
+        }
+
+        /**
+         * Renders the product cards in the main grid.
+         */
+        function renderProducts(productsToRender = MOCK_PRODUCTS) {
+            if (productsToRender.length === 0) {
+                productGrid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500 text-lg">
+                    No products found matching your criteria in the current category.
+                </div>`;
+                return;
+            }
+
+            productGrid.innerHTML = productsToRender.map(product => `
+                <div id="product-${product.id}" class="bg-white rounded-xl shadow-lg p-3 flex flex-col justify-between transition duration-200 hover:shadow-xl hover:scale-[1.01]">
+                    <div class="flex flex-col items-center">
+                        <!-- Generic Placeholder Image URL used -->
+                        <img src="https://placehold.co/100x100/6366F1/FFFFFF?text=Item" alt="${product.name}" class="w-20 h-20 rounded-lg object-cover mb-2" onerror="this.onerror=null;this.src='https://placehold.co/80x80/6366F1/FFFFFF?text=Item';">
+                        <p class="text-xs text-gray-500 font-medium">${product.category}</p>
+                        <h3 class="text-sm font-semibold text-gray-900 mb-1 leading-snug text-center">${product.name}</h3>
+                    </div>
+
+                    <!-- Gemini Feature 2: Insight Button -->
+                    <button data-id="${product.id}" class="insight-btn text-xs font-medium text-blue-500 hover:text-blue-700 mb-2 mt-1 transition flex items-center justify-center">
+                        Get Insight ✨
+                    </button>
+                    
+                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                        <div class="flex flex-col">
+                            <span class="text-lg font-bold text-swift-primary">$${product.price.toFixed(2)}</span>
+                            <span class="text-xs text-gray-500">(${product.unit})</span>
+                        </div>
+                        <button data-id="${product.id}" class="add-to-cart-btn bg-swift-accent text-white text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-600 transition duration-150 shadow-md">
+                            + Add
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Attach event listeners to the generated buttons
+            document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = parseInt(e.currentTarget.getAttribute('data-id'));
+                    addToCart(id);
+                });
+            });
+            
+            // Attach event listeners for the new Insight buttons
+            document.querySelectorAll('.insight-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = parseInt(e.currentTarget.getAttribute('data-id'));
+                    showProductInsight(id, e.currentTarget);
+                });
+            });
+        }
+
+        /**
+         * Adds an item to the cart or increments its quantity.
+         */
+        function addToCart(productId) {
+            cart[productId] = (cart[productId] || 0) + 1;
+            updateCartDisplay();
+        }
+
+        /**
+         * Updates the global cart count, modal content, and total.
+         */
+        function updateCartDisplay() {
+            let totalItems = 0;
+            let subtotal = 0;
+            let listHTML = '';
+
+            for (const id in cart) {
+                if (cart[id] > 0) {
+                    const product = MOCK_PRODUCTS.find(p => p.id === parseInt(id));
+                    if (!product) continue;
+                    
+                    const quantity = cart[id];
+                    totalItems += quantity;
+                    subtotal += product.price * quantity;
+
+                    listHTML += `
+                        <div class="flex items-center justify-between border-b pb-3 last:border-b-0">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-sm font-medium text-gray-600 w-5 text-right">${quantity}x</span>
+                                <h4 class="text-base font-medium text-gray-800">${product.name}</h4>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-base font-semibold text-swift-secondary">$${(product.price * quantity).toFixed(2)}</span>
+                                <button data-id="${id}" class="remove-from-cart text-gray-400 hover:text-swift-primary transition duration-150">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Update Header/Modal counts and total
+            cartCountDisplay.textContent = totalItems;
+            modalCartCountDisplay.textContent = totalItems;
+            cartTotalDisplay.textContent = `$${subtotal.toFixed(2)}`;
+
+            // Update Cart list
+            if (totalItems === 0) {
+                cartItemsList.innerHTML = '<p class="text-center text-gray-500 italic">Your basket is empty. Add some groceries!</p>';
+                payNowButton.disabled = true;
+                generateRecipeBtn.disabled = true;
+            } else {
+                cartItemsList.innerHTML = listHTML;
+                payNowButton.disabled = false;
+                generateRecipeBtn.disabled = false;
+                
+                // Attach remove button listeners
+                document.querySelectorAll('.remove-from-cart').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const id = parseInt(e.currentTarget.getAttribute('data-id'));
+                        removeFromCart(id);
+                    });
+                });
+            }
+
+            // Also update the Pay Now button text based on method
+            updatePayNowButtonText();
+        }
+
+        /**
+         * Updates the text of the main payment button based on the active payment method.
+         */
+        function updatePayNowButtonText() {
+            const total = cartTotalDisplay.textContent;
+            let buttonText = 'Pay Now';
+            
+            if (paymentMethod === 'Card') {
+                buttonText = `Pay ${total} with Card`;
+            } else if (paymentMethod === 'PayPal') {
+                buttonText = `Checkout with PayPal`;
+            } else if (paymentMethod === 'COD') {
+                buttonText = `Place Order (Pay on Delivery)`;
+            } else if (paymentMethod === 'PayID') {
+                buttonText = `Pay ${total} with PayID`;
+            }
+            
+            payNowButton.textContent = buttonText;
+        }
+
+        /**
+         * Removes one unit of an item from the cart.
+         */
+        function removeFromCart(productId) {
+            if (cart[productId] && cart[productId] > 0) {
+                cart[productId] -= 1;
+                if (cart[productId] === 0) {
+                    delete cart[productId];
+                }
+            }
+            updateCartDisplay();
+        }
+
+        /**
+         * Toggles the visibility of the cart modal.
+         */
+        function toggleCartModal(show) {
+            if (show) {
+                updateCartDisplay();
+                cartModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                // Ensure all input forms are hidden when closing the modal
+                cardPaymentForm.classList.add('hidden'); 
+                payidInputForm.classList.add('hidden'); 
+                cartModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+        
+        /**
+         * Handles the selection of a payment method.
+         */
+        function selectPaymentMethod(method) {
+            paymentMethod = method;
+            
+            // 1. Update visual state of buttons
+            document.querySelectorAll('.payment-method-btn').forEach(btn => {
+                const isActive = btn.getAttribute('data-method') === method;
+                if (isActive) {
+                    btn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300', 'hover:border-swift-secondary');
+                    btn.classList.add('bg-swift-primary', 'text-white', 'border-swift-primary');
+                } else {
+                    btn.classList.remove('bg-swift-primary', 'text-white', 'border-swift-primary');
+                    btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:border-swift-secondary');
+                }
+            });
+
+            // 2. Toggle visibility of input forms
+            cardPaymentForm.classList.add('hidden');
+            payidInputForm.classList.add('hidden'); // Hide PayID form
+            paymentErrorDisplay.classList.add('hidden'); // Hide any previous error
+
+            if (method === 'Card') {
+                cardPaymentForm.classList.remove('hidden');
+            } else if (method === 'PayID') {
+                payidInputForm.classList.remove('hidden'); // Show PayID form
+            }
+
+            // 3. Update main button text
+            updatePayNowButtonText();
+        }
+        
+        /**
+         * Shows a temporary floating message box.
+         */
+        function showTempMessage(message, isSuccess = true) {
+            const confirmationBox = document.createElement('div');
+            const baseClasses = 'fixed top-5 right-5 z-[100] p-4 rounded-lg shadow-xl animate-fade-in-down';
+            const colorClasses = isSuccess 
+                ? 'bg-swift-accent text-white' 
+                : 'bg-yellow-500 text-white'; 
+            
+            confirmationBox.className = `${baseClasses} ${colorClasses}`;
+            confirmationBox.innerHTML = message;
+            document.body.appendChild(confirmationBox);
+
+            setTimeout(() => {
+                confirmationBox.remove();
+            }, 4000);
+        }
+
+        /**
+         * Completes the order process (clears cart, shows confirmation).
+         */
+        function processOrderSuccess(originalButtonText, buttonRef) {
+            const total = cartTotalDisplay.textContent;
+            
+            // Close modals if they are open
+            if (!cartModal.classList.contains('hidden')) {
+                toggleCartModal(false);
+            }
+            if (!paypalSignInModal.classList.contains('hidden')) {
+                paypalSignInModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+            
+            cart = {};
+            updateCartDisplay();
+            
+            const paymentTypeText = originalButtonText.includes('Pay') ? 'Payment' : 'Order';
+
+            // Show confirmation message
+            showTempMessage(`
+                <p class="font-bold">Order Confirmed!</p>
+                <p class="text-sm">${paymentTypeText} successful for ${total}.</p>
+                <p class="text-xs mt-1">Delivery is on the way in 10 mins!</p>
+            `, true);
+
+            // Reset button state
+            buttonRef.disabled = false;
+            buttonRef.textContent = originalButtonText;
+        }
+        
+        // --- Auth Functions ---
+        
+        /**
+         * Toggles the main Auth/Login modal.
+         */
+        function toggleAuthModal(show) {
+            if (show) {
+                authModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+                authErrorDisplay.classList.add('hidden');
+            } else {
+                authModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        /**
+         * Handles the mock sign-in logic (Email/Password or Google).
+         */
+        function mockSignIn(method) {
+            authErrorDisplay.classList.add('hidden');
+            let success = false;
+            let message = '';
+            
+            if (method === 'Google') {
+                // Mock Google sign-in (instant success for this demo)
+                success = true;
+                message = "Signed in successfully with Google!";
+            } else {
+                // Email/Password check
+                const email = authEmailInput.value.trim();
+                const password = authPasswordInput.value.trim();
+                
+                if (email === MOCK_AUTH_EMAIL && password === MOCK_AUTH_PASSWORD) {
+                    success = true;
+                    message = `Welcome back, ${email}!`;
+                } else {
+                    authErrorDisplay.textContent = 'Invalid email or password. Use the mock credentials provided.';
+                    authErrorDisplay.classList.remove('hidden');
+                }
+            }
+            
+            if (success) {
+                isAuthenticated = true;
+                toggleAuthModal(false);
+                showTempMessage(`<p class="font-bold">${message}</p>`, true);
+                
+                // Update the Sign In button to show a logged-in state (e.g., Log Out)
+                signInButton.textContent = 'Log Out';
+                signInButton.classList.remove('text-gray-700', 'bg-gray-100');
+                signInButton.classList.add('text-white', 'bg-swift-accent', 'hover:bg-green-600');
+                
+            }
+        }
+        
+        function handleAuthButtonClick() {
+            if (isAuthenticated) {
+                // Log out sequence
+                isAuthenticated = false;
+                signInButton.textContent = 'Sign In';
+                signInButton.classList.remove('text-white', 'bg-swift-accent', 'hover:bg-green-600');
+                signInButton.classList.add('text-gray-700', 'bg-gray-100');
+                showTempMessage("You have been signed out.", false);
+            } else {
+                // Open login modal
+                toggleAuthModal(true);
+            }
+        }
+
+
+        // --- PayPal Functions ---
+        
+        /**
+         * Toggles the PayPal sign-in modal.
+         */
+        function togglePayPalModal(show) {
+            if (show) {
+                paypalSignInModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+                paypalEmailInput.value = '';
+                paypalPasswordInput.value = '';
+                paypalErrorDisplay.classList.add('hidden');
+            } else {
+                paypalSignInModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        /**
+         * Mocks the PayPal login attempt.
+         */
+        function mockPayPalLogin(originalButtonText) {
+            const email = paypalEmailInput.value.trim();
+            const password = paypalPasswordInput.value.trim();
+            
+            paypalErrorDisplay.classList.add('hidden');
+            paypalLoginButton.disabled = true;
+            paypalLoginButton.innerHTML = `<div class="spinner w-5 h-5 mr-2"></div> Logging In...`;
+
+            // Simulate login delay
+            setTimeout(() => {
+                if (email === MOCK_PAYPAL_EMAIL && password === MOCK_PAYPAL_PASSWORD) {
+                    // Success!
+                    processOrderSuccess(originalButtonText, payNowButton);
+                } else {
+                    // Failure
+                    paypalErrorDisplay.textContent = 'Login Failed. Check your mock email (test@paypal.com) and password (password).';
+                    paypalErrorDisplay.classList.remove('hidden');
+                    paypalLoginButton.disabled = false;
+                    paypalLoginButton.textContent = 'Log In & Pay';
+                }
+            }, 1500);
+        }
+
+        /**
+         * Handles clicking the Forgot Password link in the PayPal modal.
+         */
+        function handleForgotPassword() {
+            paypalErrorDisplay.textContent = 'Mock: Password reset link sent to your email.';
+            paypalErrorDisplay.classList.remove('hidden');
+        }
+
+
+        /**
+         * Mocks the payment processing logic, now simulating external redirects for Card.
+         */
+        function handlePayment() {
+            const originalButtonText = payNowButton.textContent;
+            
+            // Initial state update
+            payNowButton.disabled = true;
+            payNowButton.innerHTML = `<div class="spinner w-6 h-6 mr-2"></div> Processing...`;
+            paymentErrorDisplay.classList.add('hidden');
+            
+            // --- PayPal Logic (External Redirect Simulation) ---
+            if (paymentMethod === 'PayPal') {
+                // Close cart modal and open PayPal sign-in simulation modal
+                toggleCartModal(false);
+                togglePayPalModal(true);
+                
+                // Since payment processing logic is moved to mockPayPalLogin, 
+                // we reset the payNowButton here as it won't be used until login success/failure
+                payNowButton.disabled = false;
+                payNowButton.textContent = originalButtonText;
+                return; 
+            }
+            
+            // --- Card Logic (External Redirect Simulation) ---
+            if (paymentMethod === 'Card') {
+                const cardNumber = cardNumberInput.value.replace(/\s/g, '');
+                const cardExpiry = cardExpiryInput.value;
+                const cardCVC = cardCVCInput.value;
+
+                // Simple Mock Validation (Requires a full 16-digit number, MM/YY, and 3-digit CVC)
+                const isValid = cardNumber.length === 16 && cardExpiry.match(/^\d{2}\/\d{2}$/) && cardCVC.length === 3;
+                
+                if (!isValid) {
+                    paymentErrorDisplay.textContent = 'Invalid card details. Please ensure all fields are correctly filled (mock data required).';
+                    paymentErrorDisplay.classList.remove('hidden');
+                    payNowButton.disabled = false;
+                    payNowButton.textContent = originalButtonText;
+                    return;
+                }
+                
+                // --- SIMULATE REDIRECT ---
+                toggleCartModal(false);
+                // Show a yellow banner message to simulate leaving the page for security
+                showTempMessage('<p class="font-bold">Security Notice:</p>Redirecting to secure card processing...', false); 
+
+                setTimeout(() => {
+                    // Simulate return from Stripe/PSP with success
+                    processOrderSuccess(originalButtonText, payNowButton);
+                }, 2000);
+                return; // Stop flow here
+            }
+            // --- End Card Logic ---
+            
+            // --- PayID Logic (Internal Processing) ---
+            if (paymentMethod === 'PayID') {
+                const payidMobile = payidMobileInput.value.replace(/\s/g, '');
+
+                // Mock Validation: Must be 10 digits (typical Australian mobile format)
+                const isValid = payidMobile.length === 10 && (payidMobile.startsWith('04') || payidMobile.startsWith('4'));
+
+                if (!payidMobile || !isValid) {
+                    paymentErrorDisplay.textContent = 'Please enter a valid 10-digit Australian mobile number (PayID).';
+                    paymentErrorDisplay.classList.remove('hidden');
+                    payNowButton.disabled = false;
+                    payNowButton.textContent = originalButtonText;
+                    return;
+                }
+                // Fall through to the common success delay below
+            }
+
+            // --- COD / PayID Success Logic (Wait for 2 seconds) ---
+            // This handles COD and PayID (if validation passed)
+            if (paymentMethod === 'COD' || paymentMethod === 'PayID') {
+                setTimeout(() => {
+                    processOrderSuccess(originalButtonText, payNowButton);
+                }, 2000);
+            }
+        }
+        
+        // --- Legal Modal Functions ---
+        
+        /**
+         * Toggles the Privacy Policy modal.
+         */
+        function togglePrivacyModal(show) {
+            if (show) {
+                privacyPolicyModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                privacyPolicyModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        /**
+         * Toggles the Terms of Service modal.
+         */
+        function toggleTermsModal(show) {
+            if (show) {
+                termsModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                termsModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        /**
+         * Toggles the FAQs modal.
+         */
+        function toggleFAQsModal(show) {
+            if (show) {
+                faqsModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                faqsModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        // --- NEW Security Report Functions ---
+
+        /**
+         * Toggles the Security Report modal.
+         */
+        function toggleSecurityModal(show) {
+            if (show) {
+                securityModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+                securityErrorDisplay.classList.add('hidden');
+                securityTitleInput.value = '';
+                securityDescriptionInput.value = '';
+                securityEmailInput.value = '';
+            } else {
+                securityModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        /**
+         * Handles the mock submission of the security report form.
+         */
+        function handleSecurityReport() {
+            const title = securityTitleInput.value.trim();
+            const description = securityDescriptionInput.value.trim();
+            const email = securityEmailInput.value.trim();
+
+            securityErrorDisplay.classList.add('hidden');
+
+            if (!title || !description) {
+                securityErrorDisplay.textContent = 'Please provide a Title and a Detailed Description.';
+                securityErrorDisplay.classList.remove('hidden');
+                return;
+            }
+
+            // Mock Submission Logic
+            const submitButton = document.getElementById('submitSecurityReport');
+            const originalText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner w-5 h-5 mr-2"></div> Submitting...`;
+
+            setTimeout(() => {
+                toggleSecurityModal(false);
+                showTempMessage(`
+                    <p class="font-bold">Report Submitted!</p>
+                    <p class="text-sm">Thank you for reporting this issue. We will investigate immediately.</p>
+                `, true);
+                
+                // Reset button state
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
+            }, 1500);
+        }
+        
+        // --- NEW AI Chat Functions (for Contact Us) ---
+
+        /**
+         * Toggles the AI Support Chat modal.
+         */
+        function toggleChatModal(show) {
+            if (show) {
+                chatModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                chatModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        /**
+         * Renders a message bubble in the chat history.
+         */
+        function renderChatMessage(role, text) {
+            const messageDiv = document.createElement('div');
+            const isUser = role === 'user';
+            
+            messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+            messageDiv.innerHTML = `
+                <div class="${isUser ? 'bg-swift-primary text-white' : 'bg-gray-100 text-gray-700'} p-3 rounded-xl max-w-[80%] shadow-md">
+                    <p class="font-semibold ${isUser ? 'hidden' : 'text-swift-accent'}">${isUser ? 'You' : 'AI Support'}</p>
+                    <div class="llm-content">${markdownToHtml(text)}</div>
+                </div>
+            `;
+            chatHistoryContainer.appendChild(messageDiv);
+            chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight; // Auto-scroll
+        }
+        
+        /**
+         * Handles user input and calls the Gemini API.
+         */
+        async function handleChatInput() {
+            const userText = chatInput.value.trim();
+            if (!userText) return;
+
+            // 1. Add user message to history
+            renderChatMessage('user', userText);
+            chatInput.value = '';
+            chatInput.disabled = true;
+            chatSendButton.disabled = true;
+            
+            // 2. Update chat state
+            chatHistory.push({ role: "user", parts: [{ text: userText }] });
+
+            // 3. Render a loading indicator for AI response
+            const loadingBubble = document.createElement('div');
+            loadingBubble.id = 'ai-loading';
+            loadingBubble.className = 'flex justify-start';
+            loadingBubble.innerHTML = `
+                <div class="bg-gray-100 p-3 rounded-xl max-w-[80%] shadow-sm flex items-center">
+                    <div class="spinner-sm inline-block mr-2"></div>
+                    <p class="text-gray-500 font-medium">AI is typing...</p>
+                </div>
+            `;
+            chatHistoryContainer.appendChild(loadingBubble);
+            chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+
+            const systemInstruction = `You are a helpful, friendly, and knowledgeable customer support agent for Winnkit! grocery delivery in Sydney, Australia. Your core knowledge covers FAQs, delivery estimates, payment methods (Card, PayPal, PayID, COD), and general product information available in the store catalog. Keep responses concise and focused on assisting the customer with their service-related query.`;
+            
+            const payload = {
+                contents: chatHistory, // Send full history for context
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemInstruction }]
+                },
+            };
+
+            try {
+                const result = await fetchWithBackoff(API_URL, payload);
+                const { text } = processLlmResult(result);
+                
+                // 4. Remove loading indicator and render AI response
+                document.getElementById('ai-loading')?.remove();
+                renderChatMessage('model', text);
+
+                // 5. Update state for next turn
+                chatHistory.push({ role: "model", parts: [{ text: text }] });
+                
+            } catch (e) {
+                document.getElementById('ai-loading')?.remove();
+                renderChatMessage('model', "I apologize, I'm experiencing a high volume of requests and cannot respond right now. Please try again in a moment.");
+                console.error("Chat API Error:", e);
+                // Note: Chat history is not updated with the error message to prevent polluting the context.
+            } finally {
+                chatInput.disabled = false;
+                chatSendButton.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+
+        // --- Initialization and Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // Initial render calls
+            filterProducts('All'); // Initial render calls applyFilters internally
+            selectPaymentMethod(paymentMethod); // Initialize Card as default
+            updateCartDisplay(); 
+            
+            // Note: Geolocation feature removed here.
+
+            // NEW: Add input listener for search bar
+            searchInput.addEventListener('input', () => {
+                applyFilters(); // Apply search filter against current category
+            });
+
+            // Event listener for showing the cart modal
+            cartIcon.addEventListener('click', () => toggleCartModal(true));
+            
+            // Event listener for closing the cart modal
+            closeModalButton.addEventListener('click', () => toggleCartModal(false));
+            
+            // Auth Modal Listeners
+            signInButton.addEventListener('click', handleAuthButtonClick);
+            closeAuthModal.addEventListener('click', () => toggleAuthModal(false));
+            authModal.addEventListener('click', (e) => {
+                if (e.target === authModal) {
+                    toggleAuthModal(false);
+                }
+            });
+            
+            // Mock Auth Logins
+            googleSignInButton.addEventListener('click', () => mockSignIn('Google'));
+            emailSignInButton.addEventListener('click', () => mockSignIn('Email'));
+
+            // Close cart modal when clicking outside (on the overlay)
+            cartModal.addEventListener('click', (e) => {
+                if (e.target === cartModal) {
+                    toggleCartModal(false);
+                }
+            });
+            
+            // Event listener for closing the LLM modal
+            closeLlmModal.addEventListener('click', closeLlmResponse);
+
+            // Close LLM modal when clicking outside
+            llmResponseModal.addEventListener('click', (e) => {
+                if (e.target === llmResponseModal) {
+                    closeLlmResponse();
+                }
+            });
+            
+            // Close Legal Modals when clicking outside
+            privacyPolicyModal.addEventListener('click', (e) => {
+                if (e.target === privacyPolicyModal) togglePrivacyModal(false);
+            });
+            termsModal.addEventListener('click', (e) => {
+                if (e.target === termsModal) toggleTermsModal(false);
+            });
+            faqsModal.addEventListener('click', (e) => {
+                if (e.target === faqsModal) toggleFAQsModal(false);
+            });
+
+            // Close Security Modal when clicking outside
+            securityModal.addEventListener('click', (e) => {
+                if (e.target === securityModal) toggleSecurityModal(false);
+            });
+
+            // Close Chat Modal when clicking outside
+            chatModal.addEventListener('click', (e) => {
+                if (e.target === chatModal) toggleChatModal(false);
+            });
+
+
+            // Close PayPal modal when clicking outside
+            paypalSignInModal.addEventListener('click', (e) => {
+                if (e.target === paypalSignInModal) {
+                    togglePayPalModal(false);
+                }
+            });
+
+            // Handle Generate Recipe Button
+            generateRecipeBtn.addEventListener('click', generateRecipeFromCart);
+
+            // Handle Payment Method Selection
+            document.querySelectorAll('.payment-method-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    selectPaymentMethod(e.currentTarget.getAttribute('data-method'));
+                });
+            });
+
+            // Handle Pay Now Button
+            payNowButton.addEventListener('click', handlePayment);
+            
+            // Handle PayPal Login Button
+            paypalLoginButton.addEventListener('click', () => mockPayPalLogin(payNowButton.textContent));
+            
+            // Handle PayPal Back Button: Close PayPal modal and re-open main cart modal
+            paypalBackButton.addEventListener('click', () => {
+                togglePayPalModal(false);
+                toggleCartModal(true);
+            });
+            
+            // Handle Forgot Password link
+            forgotPasswordBtn.addEventListener('click', handleForgotPassword);
+
+            // Handle location button click: Does nothing now, as feature is removed.
+            
+            // Input formatting for Card Number
+            cardNumberInput.addEventListener('input', (e) => {
+                const value = e.target.value.replace(/\s/g, '').slice(0, 16);
+                e.target.value = value.match(/.{1,4}/g)?.join(' ') || value;
+            });
+            
+            // Input formatting for Expiry Date (MM/YY)
+            cardExpiryInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                if (value.length > 2) {
+                    value = value.substring(0, 2) + '/' + value.substring(2);
+                }
+                e.target.value = value;
+            });
+            
+            // Input formatting for PayID Mobile (Allow spaces)
+            payidMobileInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/[^0-9\s]/g, '').slice(0, 12);
+                e.target.value = value;
+            });
+        });
+    </script>
+</body>
+</html>
